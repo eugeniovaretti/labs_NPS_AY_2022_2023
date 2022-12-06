@@ -49,7 +49,8 @@ library(RobStatTM)
 Following the definitions outlined during the very first class of the
 module, explicit robust estimators are readily available in R. There is
 not very much to say about it here, let us only try to recreate the
-table presented in slide 18 of the *Introduction and explicit robust estimators* section.
+table presented in slide 18 of the *Introduction and explicit robust
+estimators* section.
 
 ```{r}
 x <-
@@ -70,7 +71,7 @@ est_names <- c(
 )
 
 explicit_est_x_9 <- c(mean(x_9),
-    mean(x_9, trim = .1),
+    mean(x_9, trim = .1), #trim argument allow us to perform trimmed mean -> with mean(x) we have trim=0
     psych::winsor.mean(x = x_9, trim = .1),
     median(x_9),
     sd(x_9),
@@ -113,10 +114,12 @@ Tukey's. They can easily be plotted by means of:
 source(system.file("xtraR/plot-psiFun.R", package = "robustbase", mustWork=TRUE))
 p.psiFun(seq(-3,3,length.out=100), "huber", par = 1.5, leg.loc="bottomright", main="T")
 p.psiFun(seq(-5,5,length.out=100), "biweight", par = 1.5, leg.loc="bottomright",main="T")
+#increasing k(par) we will have less robust estimator -> decresing k will be more strong because we downweight points far away
 ```
 
-We have already seen how to hard-code the iterative algorithm described in
-slide 13, but with an additional (robust) scale estimate $\hat{\sigma}$.
+We have already seen how to hard-code the iterative algorithm described
+in slide 13, but with an additional (robust) scale estimate
+$\hat{\sigma}$.
 
 ```{r}
 manual_M_location <-
@@ -151,13 +154,20 @@ manual_M_location <-
   }
 ```
 
-The `robustbase` package contains the `huberM` function for performing M-Estimation of location with MAD scale by means of Huber function
+The `robustbase` package contains the `huberM` function for performing
+M-Estimation of location with MAD scale by means of Huber function
+
 ```{r}
 huberM(x = x,k = 1.5)
 manual_M_location(x = x,k = 1.5,type = "Huber")
+
 ```
 
-In order to employ other $\psi$-functions, as well as other estimator types (S, MM, not covered in class), the `nlrob` is a very flexible function for robust fitting. Honestly, I do not find it straightforward to use, so we move directly to robust multivariate estimators.
+In order to employ other $\psi$-functions, as well as other estimator
+types (S, MM, not covered in class), the `nlrob` is a very flexible
+function for robust fitting (#\_ nls is the non-robust version) .
+Honestly, I do not find it straightforward to use, so we move directly
+to robust multivariate estimators.
 
 ## Robust multivariate
 
@@ -200,9 +210,9 @@ fit_MCD <- covMcd(x = Animals2, alpha = .75, nsamp = "best")
 fit_MCD
 ```
 
-The `fit_MCD` object contains the raw and reweighted estimates
-of location and scatter, the resulting robust Mahalanobis distances and
-the best subset used for computing the raw estimates.
+The `fit_MCD` object contains the raw and reweighted estimates of
+location and scatter, the resulting robust Mahalanobis distances and the
+best subset used for computing the raw estimates.
 
 ```{r}
 ind_best_subset <- fit_MCD$best
@@ -221,7 +231,7 @@ distribution) and a finite sample correction factor, to make it
 consistent at the normal model and unbiased at small samples.
 
 ```{r}
-dplyr::near(fit_MCD$raw.center,colMeans(Animals2[ind_best_subset,]))
+dplyr::near(fit_MCD$raw.center,colMeans(Animals2[ind_best_subset,])) #I compute colmean of black points
 dplyr::near(fit_MCD$raw.cov,cov(Animals2[ind_best_subset,])*prod(fit_MCD$raw.cnp2))
 h <- fit_MCD$quan
 dplyr::near(fit_MCD$raw.cnp2[1],(h/N)/pchisq(qchisq(p = h/N,df = p),df = p+2))
@@ -237,6 +247,7 @@ $$ where $d^2$ is the squared Mahalanobis distance based on the scaled
 raw MCD.
 
 ```{r}
+#i computed 
 ind_rew_obs <-
   which(
     mahalanobis(
@@ -245,6 +256,8 @@ ind_rew_obs <-
       cov = fit_MCD$raw.cov
     ) <= qchisq(p = .975, df = p)
   )
+#this is the reweightd estimate -> because reducing the sample we are loosing maybe the true variability
+# -> I'm maintaining the old breakdown point acter the reweighting
 dplyr::near(fit_MCD$center,colMeans(Animals2[ind_rew_obs,]))
 dplyr::near(fit_MCD$cov,cov(Animals2[ind_rew_obs,])*prod(fit_MCD$cnp2))
 ```
@@ -318,7 +331,7 @@ changed after the first $100$ points, and between index $491–565$ it was
 out of control.
 
 ## Robust regression
-
+#_now lets look how to compute least trimmed square and least ..(?)
 ### A simple example
 
 Let us consider the Hertzsprung-Russell Diagram Data already encountered
@@ -347,6 +360,8 @@ Least Trimmed Squares (LTS)
 ```{r}
 fit_lms <- lmsreg(log.light~log.Te, data=starsCYG)
 fit_lts <- ltsReg(log.light~log.Te, alpha=.75,mcd=TRUE,data=starsCYG) #ltsreg in the MASS package uses an older (slower) implementation of the LTS estimator
+
+#_ ltsReg is more efficient and much more employed -> USE IT!
 ```
 
 ```{r}
@@ -360,7 +375,10 @@ legend("bottomleft", c('OLS', 'LMS', 'LTS'), lwd=rep(2,4), col=c("red", "darkblu
 As for the MCD estimator, `robustbase` provides plotting methods for LTS
 
 ```{r}
+#_ lms does not have plotting facilities
 plot(fit_lts)
+
+#_ from the last graph we can see that there are no vertical outliers; 14 is a good leverage point and the others are bad leverage points
 ```
 
 ### A somewhat less simple example
